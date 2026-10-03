@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+logs/
+reports/
+*.log
+*.html
+ptt.zip
+README_kahkim.md
+# raw board dumps (re-fetched by fetch_board.py); keep the demand history
+data/*
+!data/demand_005930.csv
+!data/demand_BTC.csv
