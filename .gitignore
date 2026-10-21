@@ -10,3 +10,6 @@ README_kahkim.md
 data/*
 !data/demand_005930.csv
 !data/demand_BTC.csv
+data_A/
+plans_draft/
+*.docx

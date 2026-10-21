@@ -162,7 +162,7 @@ def allocate(product, days, target, inv0, lookahead=None, round_end=None):
 
             lo = max(0, need - s)
 
-            hi = min(MAX_JOBS, need + remaining_after - s)
+            hi = max(lo, min(MAX_JOBS, need + remaining_after - s))   # inventory may exceed remaining demand -> allow x=0
 
             if product == 'P1':   # makespan is flat across weekdays -> building ahead never beats $30k/job/day holding
 

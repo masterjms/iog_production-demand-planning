@@ -23,11 +23,11 @@ def week_profit(hist, p, days, z, inv0=0, nxt=None):
 
 if __name__ == '__main__':
     hist = load_demand('data')
-    start, end = pd.Timestamp('2026-06-07'), pd.Timestamp('2026-09-12')   # Sundays
+    start, end = pd.Timestamp('2025-07-06'), pd.Timestamp('2026-09-12')   # Sundays (62 weeks; z=0.4 chosen on this window)
     sundays = [d for d in pd.date_range(start, end, freq='W-SUN')]
     for p in ['P1', 'P2']:
         print(f'\n=== {p} ===  z:  profit/week (M$)   stockout%   PFR')
-        for z in [0, 0.5, 0.8, 1.0, 1.3, 1.6, 2.0]:
+        for z in [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.3, 1.6]:
             tot, inv, st, sd, dm, prod = 0, 0, 0, 0, 0, 0
             for s in sundays:
                 days = [s + pd.Timedelta(days=i) for i in range(7)]

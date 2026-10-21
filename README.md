@@ -28,6 +28,12 @@ pip install -r requirements.txt
    - Material: AUTO **OFF**, 그날 칸에만 입력.
    - 입력 후 공개 게시판에서 Planned #Jobs, Algo=CUSTOM 확인.
 
+## 데이터 갱신 (planner 실행 전 반드시)
+- 다른 PC에서는 수요 데이터가 자동 갱신되지 않는다. 16시 이후에 아래를 먼저 실행하면 `data/demand_*.csv`와 공개 보드가 갱신된다.
+  ```
+  python daily_check.py --round R2602C --start 2026-11-01 --end 2026-12-04
+  ```
+
 ## 매일
 - Windows 작업 스케줄러가 21:30에 `daily_run.py` 실행 → `logs/latest.txt` (이 PC 전용 설정).
 - 다른 PC에서는 `python daily_run.py` 를 직접 실행하면 된다.
@@ -41,6 +47,7 @@ pip install -r requirements.txt
 | backtest.py | 안전계수 z 튜닝 (현재 P1 0.4, P2 0.4) |
 | daily_check.py / daily_run.py | 가상 라운드 결과 vs 실제 보드 비교, 데이터 갱신 |
 | fetch_board.py | 공개 보드 수집 → data/ |
+| verify_sim.py | sim.py 검증: R2602A Ledger 금액 항목 48/48 일치 (verify_sim_R2602A.csv) |
 | ms_table.csv | 제품·요일·Job수별 NEH makespan 표 (build_table.py로 재생성, 약 20분) |
 | ptt/ | 요일별 공정시간표 (t_=P1, t2_=P2) |
 | scheduling_lib.py | 주최측 공식 채점 코드 (출처: github.com/Kahkim/kahkim) |
