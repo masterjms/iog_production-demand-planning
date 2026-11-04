@@ -18,7 +18,17 @@ for f in plans: jobs.update(json.load(open(f))['jobs'])
 hist = load_demand('data'); hist = {k: {d: v for d, v in h.items() if d <= today} for k, h in hist.items()}
 days = [today + pd.Timedelta(days=i) for i in range(14)]
 fz = {k: forecast(hist[k], k, days, Z[k]) for k in ['P1', 'P2']}
-plan = {d: (jobs[str(d.date())] if str(d.date()) in jobs else {k: math.ceil(fz[k][d][1] / 1000) for k in ['P1', 'P2']}) for d in days}
+from planner import allocate
+entered = {d: jobs[str(d.date())] for d in days if str(d.date()) in jobs}
+est = [d for d in days if str(d.date()) not in jobs]
+plan = dict(entered)
+for k in ['P1', 'P2']:   # days without an entered plan: same DP, carrying the finished-goods stock implied by the entered plan
+    carry = 0
+    for d in sorted(entered):
+        carry = max(0, carry + entered[d][k] * 1000 - fz[k][d][0])
+    if est:
+        alloc, _ = allocate(k, est, {d: fz[k][d][1] for d in est}, carry // 1000)
+        for d in est: plan.setdefault(d, {})[k] = alloc[d]
 pending = [tuple(o) for o in json.load(open('orders_pending.json')) if pd.Timestamp(o[0]) >= today]   # [arrival, mat, qty, urgent]
 print('pending arrivals:', pending)
 orders, warns = material_orders(plan, mat0, pending, days, today - pd.Timedelta(days=1), START, END)

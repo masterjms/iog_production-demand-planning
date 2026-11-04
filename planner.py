@@ -248,7 +248,8 @@ def material_orders(prod_plan, mat0, pending, days_horizon, asof, round_start, r
 
                 # cover from d through d+T-1 (plus what's short today)
 
-                cover = sum(need.get(d + pd.Timedelta(days=i), {}).get(m, 0) for i in range(T_int[m])) - inv
+                win = [d + pd.Timedelta(days=i) for i in range(T_int[m])]   # net of arrivals already scheduled inside the window
+                cover = sum(need.get(x, {}).get(m, 0) for x in win) - inv - sum(arrivals.get(x, 0) for x in win[1:])
 
                 cover = int(math.ceil(max(cover, n - inv) / 1000) * 1000)
 
