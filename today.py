@@ -22,10 +22,13 @@ from planner import allocate
 entered = {d: jobs[str(d.date())] for d in days if str(d.date()) in jobs}
 est = [d for d in days if str(d.date()) not in jobs]
 plan = dict(entered)
-for k in ['P1', 'P2']:   # days without an entered plan: same DP, carrying the finished-goods stock implied by the entered plan
-    carry = 0
+L = pd.read_csv('data_C/ledger_0.csv')   # actual finished-goods stock after the last operated day
+fg = {k: int(L[L.Action == f'SALES_INVENTORY_{k}'].sort_values('Date').iloc[-1]['Description'].split()[0]) for k in ['P1', 'P2']}
+print('finished goods now:', fg)
+for k in ['P1', 'P2']:   # days without an entered plan: same DP, carrying actual stock + remaining entered production - forecast demand
+    carry = fg[k]
     for d in sorted(entered):
-        carry = max(0, carry + entered[d][k] * 1000 - fz[k][d][0])
+        if d >= today: carry = max(0, carry + entered[d][k] * 1000 - fz[k][d][0])
     if est:
         alloc, _ = allocate(k, est, {d: fz[k][d][1] for d in est}, carry // 1000)
         for d in est: plan.setdefault(d, {})[k] = alloc[d]
