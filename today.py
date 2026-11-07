@@ -1,10 +1,10 @@
 """오늘 자재 주문 계산: 데이터·게시판 갱신 → 실제 재고 + 도착 예정(orders_pending.json) + 이번 주 확정 생산 + 다음 주 추정으로 MRP.
 사용: python today.py 2026-11-04 [plans/R2602C_2026-11-01.json ...]"""
 import sys, json, math, io, requests, pandas as pd, fetch_board
-from planner import material_orders, forecast
+from planner import material_orders, forecast, Z_DEFAULT
 from sim import load_demand
 ROUND, START, END, TEAM = 'R2602C', '2026-11-01', '2026-12-04', 'DKU/26_DKU_GMG'
-Z = {'P1': 0.6, 'P2': 0.4}
+Z = Z_DEFAULT   # P1 0.4 / P2 0.4 (planner와 동일)
 today = pd.Timestamp(sys.argv[1]); plans = sys.argv[2:] or ['plans/R2602C_2026-11-01.json']
 for c in ['005930', 'BTC']:
     d = pd.read_excel(io.BytesIO(requests.get(f'http://play.ioground.kr:5005/plans_demand/demand_down/{c}').content), engine='xlrd')
@@ -24,11 +24,11 @@ est = [d for d in days if str(d.date()) not in jobs]
 plan = dict(entered)
 L = pd.read_csv('data_C/ledger_0.csv')   # actual finished-goods stock after the last operated day
 fg = {k: int(L[L.Action == f'SALES_INVENTORY_{k}'].sort_values('Date').iloc[-1]['Description'].split()[0]) for k in ['P1', 'P2']}
-print('finished goods now:', fg)
+last = pd.Timestamp(L.Date.max()); print('finished goods after', last.date(), ':', fg)   # ledger runs ~20:00; days after `last` are still to be sold
 for k in ['P1', 'P2']:   # days without an entered plan: same DP, carrying actual stock + remaining entered production - forecast demand
     carry = fg[k]
     for d in sorted(entered):
-        if d >= today: carry = max(0, carry + entered[d][k] * 1000 - fz[k][d][0])
+        if d > last: carry = max(0, carry + entered[d][k] * 1000 - fz[k][d][0])
     if est:
         alloc, _ = allocate(k, est, {d: fz[k][d][1] for d in est}, carry // 1000)
         for d in est: plan.setdefault(d, {})[k] = alloc[d]
