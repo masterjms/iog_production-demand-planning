@@ -45,7 +45,7 @@ pip install -r requirements.txt
 | flowshop.py | makespan 계산(공식 scheduling_lib와 동일) + NEH/IG 순서 최적화. `python flowshop.py P1 mon 260 30` |
 | sim.py | Ledger 시뮬레이터 |
 | planner.py | 주간 계획 생성 (예측→수량→P2 요일배분 DP→자재발주→순서) |
-| backtest.py | 안전계수 z 튜닝 (현재 P1 0.4, P2 0.4) |
+| backtest.py | 안전계수 z 튜닝 (현재 P1 0.3, P2 0.3; σ는 최근 60관측 실현 변동성으로 자동 스케일) |
 | daily_check.py / daily_run.py | 가상 라운드 결과 vs 실제 보드 비교, 데이터 갱신 |
 | fetch_board.py | 공개 보드 수집 → data/ |
 | verify_sim.py | sim.py 검증: R2602A Ledger 금액 항목 48/48 일치 (verify_sim_R2602A.csv) |

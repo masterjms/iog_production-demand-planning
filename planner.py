@@ -29,6 +29,20 @@ KRX_HOLIDAYS = {'2026-09-24', '2026-09-25', '2026-10-05', '2026-10-09', '2026-12
 # forecast error std by horizon (from demand history, see analysis): P1 by trading days, P2 by calendar days
 
 SIGMA = {'P1': [0, .033, .045, .052, .059, .065, .07, .075], 'P2': [0, .021, .031, .037, .043, .049, .054, .059]}
+SIGMA_WINDOW = 60   # 2026-11-13: scale the table by realized 1-step sigma over the last 60 observations (table h=1 was 3.3% but Samsung ran 5.6% in Nov 2026)
+
+
+def realized_sigma(hist, window=SIGMA_WINDOW):
+    v = np.array([hist[d] for d in sorted(hist)][-(window + 1):], dtype=float)
+    v = v[v > 0]
+    return float(np.std(np.diff(np.log(v)), ddof=1)) if len(v) > 10 else None
+
+
+def sigma(product, h, hist=None):
+    base = SIGMA[product][min(h, 7)]
+    if hist is None or SIGMA_WINDOW is None: return base
+    s1 = realized_sigma(hist)
+    return base * s1 / SIGMA[product][1] if s1 else base
 
 MAX_JOBS = 500
 
@@ -106,7 +120,7 @@ def forecast(hist, product, days, z):
 
         h += 1
 
-        sig = SIGMA[product][min(h, 7)]
+        sig = sigma(product, h, hist)
 
         out[d] = (last, int(round(last * (1 + z * sig))))
 
@@ -277,7 +291,7 @@ def material_orders(prod_plan, mat0, pending, days_horizon, asof, round_start, r
 
 
 
-Z_DEFAULT = {'P1': 0.4, 'P2': 0.4}   # tuned by backtest.py (2025-07..2026-09)
+Z_DEFAULT = {'P1': 0.3, 'P2': 0.3}   # re-tuned 2026-11-13 with realized-sigma scaling (backtest_z_record.csv, 62 weeks: 0.3 max for both)
 
 
 
