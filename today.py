@@ -27,8 +27,10 @@ fg = {k: int(L[L.Action == f'SALES_INVENTORY_{k}'].sort_values('Date').iloc[-1][
 last = pd.Timestamp(L.Date.max()); print('finished goods after', last.date(), ':', fg)   # ledger runs ~20:00; days after `last` are still to be sold
 for k in ['P1', 'P2']:   # days without an entered plan: same DP, carrying actual stock + remaining entered production - forecast demand
     carry = fg[k]
-    for d in sorted(entered):
-        if d > last: carry = max(0, carry + entered[d][k] * 1000 - fz[k][d][0])
+    for d in pd.date_range(last + pd.Timedelta(days=1), days[-1]):   # every day the ledger has not processed yet (may start before `today`)
+        if str(d.date()) in jobs:
+            dem = fz[k][d][0] if d in fz[k] else hist[k].get(d, 0)   # day before `today`: known demand
+            carry = max(0, carry + jobs[str(d.date())][k] * 1000 - dem)
     if est:
         alloc, _ = allocate(k, est, {d: fz[k][d][1] for d in est}, carry // 1000)
         for d in est: plan.setdefault(d, {})[k] = alloc[d]
