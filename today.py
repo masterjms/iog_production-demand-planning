@@ -1,11 +1,11 @@
 """오늘 자재 주문 계산: 데이터·게시판 갱신 → 실제 재고 + 도착 예정(orders_pending.json) + 이번 주 확정 생산 + 다음 주 추정으로 MRP.
-사용: python today.py 2026-11-04 [plans/R2602C_2026-11-01.json ...]"""
-import sys, json, math, io, requests, pandas as pd, fetch_board
+사용: python today.py 2026-11-15   (plans/ 의 해당 라운드 주간계획을 전부 자동으로 읽음)"""
+import sys, json, math, io, glob, requests, pandas as pd, fetch_board
 from planner import material_orders, forecast, Z_DEFAULT
 from sim import load_demand
 ROUND, START, END, TEAM = 'R2602C', '2026-11-01', '2026-12-04', 'DKU/26_DKU_GMG'
 Z = Z_DEFAULT   # P1 0.4 / P2 0.4 (planner와 동일)
-today = pd.Timestamp(sys.argv[1]); plans = sys.argv[2:] or ['plans/R2602C_2026-11-01.json']
+today = pd.Timestamp(sys.argv[1]); plans = sys.argv[2:] or sorted(glob.glob(f'plans/{ROUND}_2*.json'))   # default: every weekly plan of the round
 for c in ['005930', 'BTC']:
     d = pd.read_excel(io.BytesIO(requests.get(f'http://play.ioground.kr:5005/plans_demand/demand_down/{c}').content), engine='xlrd')
     d['DATE'] = pd.to_datetime(d['DATE']); d = d.sort_values('DATE'); d.to_csv(f'data/demand_{c}.csv', index=False)
