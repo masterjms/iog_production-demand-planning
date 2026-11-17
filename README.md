@@ -17,12 +17,13 @@ pip install -r requirements.txt
    ```
 2. 주간계획 생성:
    ```
-   python planner.py --asof 2026-10-10 --round R2602B --start 2026-09-27 --end 2026-10-16 --ig 30 \
+   python planner.py --asof 2026-10-10 --round R2602B --start 2026-09-27 --end 2026-10-16 --ig 300 \
       --mat '{"M1":..,"M2":..,"M3":..}' --inv '{"P1":..,"P2":..}' --pending '[["2026-10-12","M2",2182000,false]]'
    ```
    - `--asof` = 오늘(토요일). `--mat`/`--inv` = 대시보드의 현재 자재·완제품 재고, `--pending` = 도착 예정 주문.
    - **주의: 장부는 매일 20시경 처리된다. 토요일 20시 전에 만들면 대시보드 완제품 재고는 금요일 말 값이므로 `--inv`의 P2 = 대시보드 재고 − 토요일 예측수요** (11/7에 이걸 빼먹어 P2 월·화 품절 날 뻔했음. 입력 전 2인 독립 계산 대조).
    - 결과: `plans/<round>_<주시작일>.md` (Job 수, CUSTOM 순서, 자재 발주 달력).
+   - `--ig` = P1 하루당 순서 탐색 초(권장 300, 5일이면 약 25분). P2는 몇 초 만에 하한에 도달. seqlib/에 있는 조건은 이어서 탐색하므로 다시 돌려도 나빠지지 않는다.
 3. 대시보드 입력 시 주의:
    - Production: 생산하는 칸은 **○ Job sequence 선택** 후 순서 붙여넣기. 0 Job인 칸은 Job qty 0.
    - Demand: 예측 원값(안전마진 X). P1은 증시 휴장일 0.
@@ -42,7 +43,10 @@ pip install -r requirements.txt
 ## 파일
 | 파일 | 역할 |
 |---|---|
-| flowshop.py | makespan 계산(공식 scheduling_lib와 동일) + NEH/IG 순서 최적화. `python flowshop.py P1 mon 260 30` |
+| flowshop.py | makespan 계산(공식 scheduling_lib와 동일) + NEH, 순수 Python IG(예비용) |
+| fastshop.py / fs_solver.js | 순서 최적화 본체. node 엔진을 여러 코어로 돌리고 최고 기록을 seqlib/에 누적. `python fastshop.py P1 mon 212 120` (node 없으면 Python IG로 자동 대체) |
+| seq_backtest.py | 과거 생산일 재최적화 검증 (seq_backtest_ours.csv, seq_backtest_top3_final.csv) |
+| team_compare.py / team_detail.py | 71팀 공개 장부 수집·비용 비교 |
 | sim.py | Ledger 시뮬레이터 |
 | planner.py | 주간 계획 생성 (예측→수량→P2 요일배분 DP→자재발주→순서) |
 | backtest.py | 안전계수 z 튜닝 (현재 P1 0.3, P2 0.3; σ는 최근 60관측 실현 변동성으로 자동 스케일) |

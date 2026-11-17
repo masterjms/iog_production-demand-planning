@@ -15,6 +15,7 @@ import numpy as np, pandas as pd
 from flowshop import load_ptt, makespan, spt, neh, iterated_greedy, DOW
 
 from sim import CFG, dow_of
+import fastshop
 
 
 
@@ -365,11 +366,15 @@ def build_week(asof, round_id, round_start, round_end, z=None, mat0=None, inv0=N
 
                 P = load_ptt(p, dow_of(d), n)
 
-                s_ms = makespan(P, spt(P)); q = neh(P)
+                s_ms = makespan(P, spt(P))
 
-                seq, ms = iterated_greedy(P, q, seconds=ig_seconds) if ig_seconds > 0 else (q, makespan(P, q))
+                # fastshop: node solver on several cores + best-ever library (seqlib/); P2 reaches its lower bound in seconds
 
-                seqs[f'{d.date()}_{p}'] = dict(jobs=n, spt=s_ms, opt=ms, seq=[j + 1 for j in seq])
+                seq1, ms = fastshop.solve(p, dow_of(d), n, seconds=(ig_seconds if p == 'P1' else min(ig_seconds, 5))) if ig_seconds > 0 else ([j + 1 for j in neh(P)], None)
+
+                if ms is None: ms = makespan(P, [j - 1 for j in seq1])
+
+                seqs[f'{d.date()}_{p}'] = dict(jobs=n, spt=s_ms, opt=ms, seq=seq1)
 
     plan = dict(round=round_id, asof=str(asof.date()), week=[str(d.date()) for d in days], z=z,
 
