@@ -16,7 +16,8 @@ mat0 = {r['Material type']: int(r['Current level']) for _, r in m.iterrows()}
 jobs = {}
 for f in plans: jobs.update(json.load(open(f))['jobs'])
 hist = load_demand('data'); hist = {k: {d: v for d, v in h.items() if d <= today} for k, h in hist.items()}
-days = [today + pd.Timedelta(days=i) for i in range(14)]
+days = [today + pd.Timedelta(days=i) for i in range(21)]   # look to the round end once it is within 3 weeks, never beyond it
+days = [d for d in days if d <= pd.Timestamp(END)] if (pd.Timestamp(END) - today).days <= 20 else days[:14]
 fz = {k: forecast(hist[k], k, days, Z[k]) for k in ['P1', 'P2']}
 from planner import allocate
 entered = {d: jobs[str(d.date())] for d in days if str(d.date()) in jobs}
@@ -34,6 +35,8 @@ for k in ['P1', 'P2']:   # days without an entered plan: same DP, carrying actua
     if est:
         alloc, _ = allocate(k, est, {d: fz[k][d][1] for d in est}, carry // 1000)
         for d in est: plan.setdefault(d, {})[k] = alloc[d]
+if est: print('tentative jobs for days without an entered plan (DP estimate from carried stock, not on the board):')
+for d in est: print('  ', d.date(), d.strftime('%a'), plan[d])
 pending = [tuple(o) for o in json.load(open('orders_pending.json')) if pd.Timestamp(o[0]) >= today]   # [arrival, mat, qty, urgent]
 print('pending arrivals:', pending)
 orders, warns = material_orders(plan, mat0, pending, days, today - pd.Timedelta(days=1), START, END)
