@@ -16,6 +16,7 @@ from flowshop import load_ptt, makespan, spt, neh, iterated_greedy, DOW
 
 from sim import CFG, dow_of
 import fastshop
+import us_signal
 
 
 
@@ -30,6 +31,8 @@ KRX_HOLIDAYS = {'2026-09-24', '2026-09-25', '2026-10-05', '2026-10-09', '2026-12
 # forecast error std by horizon (from demand history, see analysis): P1 by trading days, P2 by calendar days
 
 SIGMA = {'P1': [0, .033, .045, .052, .059, .065, .07, .075], 'P2': [0, .021, .031, .037, .043, .049, .054, .059]}
+P1_PULL = True       # 2026-11-18: a day with regular-time slack (<=70h) may take P1 jobs of later days (see allocate)
+US_SIGNAL = True     # 2026-11-18: P1 level shift from the US session after the last close (us_signal.py, fetch_us.py)
 SIGMA_WINDOW = 60   # 2026-11-13: scale the table by realized 1-step sigma over the last 60 observations (table h=1 was 3.3% but Samsung ran 5.6% in Nov 2026)
 
 
@@ -67,7 +70,9 @@ def _load():
 
         ns = np.arange(0, MAX_JOBS + 1)
 
-        hours = (np.interp(ns, g.n.values, g.neh.values).astype(int)) // 100
+        g = g.sort_values('n'); ms = g.opt.where(g.opt.notna(), g.neh) if 'opt' in g else g.neh   # P1: fast-solver makespans where available
+
+        hours = (np.interp(ns, g.n.values, ms.values).astype(int)) // 100
 
         cost = CFG['setup'][p] + hours * CFG['labor'] + np.maximum(0, hours - CFG['capa_h']) * CFG['labor']
 
@@ -105,9 +110,18 @@ def is_trading(d):
 
 def forecast(hist, product, days, z):
 
-    """Naive forecast (last close) + safety by horizon. hist: {date: qty}. Returns {day: (forecast, target_qty)}."""
+    """Naive forecast (last close) + safety by horizon. hist: {date: qty}. Returns {day: (forecast, target_qty)}.
+    P1: the level is shifted by the US session that closed after the last close (us_signal.p1_shift), and the
+    day-1 share of the variance explained by it is removed from sigma. No US data / no new session -> naive."""
 
     last_date = max(hist); last = hist[last_date]
+
+    mu, r2 = 0.0, 0.0
+    if product == 'P1' and US_SIGNAL:
+        first = next((pd.Timestamp(d) for d in days if is_trading(d)), None)
+        if first is not None: mu, r2 = us_signal.p1_shift(hist, first)
+        last = int(round(last * math.exp(mu)))
+    s1 = sigma(product, 1, hist)
 
     out, h = {}, 0
 
@@ -121,7 +135,7 @@ def forecast(hist, product, days, z):
 
         h += 1
 
-        sig = sigma(product, h, hist)
+        sig = math.sqrt(max(sigma(product, h, hist) ** 2 - r2 * s1 ** 2, 1e-8))
 
         out[d] = (last, int(round(last * (1 + z * sig))))
 
@@ -179,11 +193,15 @@ def allocate(product, days, target, inv0, lookahead=None, round_end=None):
 
             hi = max(lo, min(MAX_JOBS, need + remaining_after - s))   # inventory may exceed remaining demand -> allow x=0
 
-            if product == 'P1':   # makespan is flat across weekdays -> building ahead never beats $30k/job/day holding
-
-                hi = lo
-
             if _table is None: _load()
+
+            if product == 'P1':   # at overtime rates building ahead never beats $30k/job/day holding; only regular-time slack (a light
+
+                # day, e.g. a Monday after carry-over) may absorb later jobs: saves the double rate (~$57k/job) for a day of holding
+
+                capn = int(np.searchsorted(_table[(product, dow)], CFG['capa_h'], side='right')) - 1
+
+                hi = max(lo, min(hi, capn)) if P1_PULL else lo
 
             carr = _cost[(product, dow)]
 

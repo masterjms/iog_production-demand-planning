@@ -1,6 +1,6 @@
 """오늘 자재 주문 계산: 데이터·게시판 갱신 → 실제 재고 + 도착 예정(orders_pending.json) + 이번 주 확정 생산 + 다음 주 추정으로 MRP.
 사용: python today.py 2026-11-15   (plans/ 의 해당 라운드 주간계획을 전부 자동으로 읽음)"""
-import sys, json, math, io, glob, requests, pandas as pd, fetch_board
+import sys, os, json, math, io, glob, requests, pandas as pd, fetch_board
 from planner import material_orders, forecast, Z_DEFAULT
 from sim import load_demand
 ROUND, START, END, TEAM = 'R2602C', '2026-11-01', '2026-12-04', 'DKU/26_DKU_GMG'
@@ -15,6 +15,10 @@ m = pd.read_csv('data_C/material_0.csv'); print(m.to_string(index=False))
 mat0 = {r['Material type']: int(r['Current level']) for _, r in m.iterrows()}
 jobs = {}
 for f in plans: jobs.update(json.load(open(f))['jobs'])
+ov = json.load(open('overrides.json')) if os.path.exists('overrides.json') else {}   # {"2026-11-27": {"P1": 180}} = production we cap on purpose through M1
+for d, o in ov.items():
+    if d in jobs:
+        jobs[d] = {k: min(v, o.get(k, v)) for k, v in jobs[d].items()}; print('override (intended cap):', d, o)
 hist = load_demand('data'); hist = {k: {d: v for d, v in h.items() if d <= today} for k, h in hist.items()}
 days = [today + pd.Timedelta(days=i) for i in range(21)]   # look to the round end once it is within 3 weeks, never beyond it
 days = [d for d in days if d <= pd.Timestamp(END)] if (pd.Timestamp(END) - today).days <= 20 else days[:14]

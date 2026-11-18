@@ -62,3 +62,8 @@ pip install -r requirements.txt
 - 인건비 = ⌊makespan/100⌋시간 × $100k, 70시간 초과분은 $100k 추가.
 - 자재 구매비는 도착일 청구, 도착 당일 사용 가능. 품절은 이월 없음(lost sales).
 - 대체공휴일에도 증시 휴장(P1 수요 0). 2026: 10/5, 10/9 휴장.
+
+## 2026-11-18 추가 기능
+- **A안 미국 장 신호 (현승)**: `python fetch_us.py` (토요일 06:00 이후) → planner가 P1 예측 수준을 미국 금요일 장(MU·SOX·EWY)으로 보정. 끄기: planner.py `US_SIGNAL = False`. 검증: `python bt_us_signal.py`. 두 PC는 같은 `data/us/`를 써야 Job 수가 일치한다(저장소에 포함).
+- **E안 P1 당기기**: 정규시간(70h) 여유가 있는 날이 뒤 날짜의 P1 Job을 가져온다(allocate, `P1_PULL`). 70h 선은 `ms_table.csv`의 `opt` 열(새 엔진 makespan, `build_opt_table.py`)로 계산.
+- **D안 M1으로 생산 조절**: `overrides.json` 에 `{"2026-11-27": {"P1": 180}}` 처럼 의도한 상한을 적으면 today.py가 그 양으로 자재·재고를 계산한다(다시 채우는 발주가 나오지 않음). 자재가 모자라면 입력한 순서에서 id ≤ k 인 Job만 그 순서대로 생산되므로, 줄일 가능성이 있는 날은 `fastshop.solve_nested(product, dow, n, [k1, k2, ...])` 로 만든 중첩 순서를 입력한다(일반 순서를 자르면 2~14% 길어짐).

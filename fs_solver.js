@@ -6,7 +6,8 @@
 const fs = require('fs');
 const [, , file, nS, secS, seedS, dS, TS, variant, init] = process.argv;
 const n = +nS, seconds = +secS, D = +dS, TT = +TS;
-const [VAR, FLAGS = ''] = (variant || 'rs').split(':'), TIE = FLAGS.includes('t'), SIDE = FLAGS.includes('s');
+const [VAR, FLAGS = '', KS = '0'] = (variant || 'rs').split(':'), TIE = FLAGS.includes('t'), SIDE = FLAGS.includes('s');
+const FREEZE = +KS;   // nested mode: jobs with id <= FREEZE keep their relative order, so filtering to ids <= FREEZE returns the start order
 const lines = fs.readFileSync(file, 'utf8').trim().split(/\r?\n/);
 const head = lines[0].split(','), idc = head.indexOf('JobID');
 const m = head.length - 1;
@@ -54,7 +55,7 @@ function localSearch(seq, L, ms) {
     for (let i = 0; i < L; i++) ord[i] = seq[i];
     for (let i = L - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = ord[i]; ord[i] = ord[j]; ord[j] = t; }
     for (let x = 0; x < L; x++) {
-      const job = ord[x]; let p = 0; while (seq[p] !== job) p++;
+      const job = ord[x]; if (job < FREEZE) continue; let p = 0; while (seq[p] !== job) p++;
       removeAt(seq, L, p); bestInsert(seq, L - 1, job);
       if (bms < ms) { insertAt(seq, L - 1, bpos, job); ms = bms; improved = true; }
       else if (SIDE && bms === ms) insertAt(seq, L - 1, bpos, job);
@@ -81,13 +82,14 @@ let curMs = localSearch(cur, n, makespan(cur, n));
 let best = cur.slice(), bestMs = curMs, iters = 0;
 let sumP = 0; for (let i = 0; i < n * m; i++) sumP += P[i];
 const temp = TT * sumP / (n * m * 10);
+const DD = FREEZE ? Math.max(1, Math.min(D, n - FREEZE)) : D;   // never destroy more jobs than are free
 const t0 = Date.now(), work = new Int32Array(n + 1), rem = new Int32Array(D);
 while (Date.now() - t0 < seconds * 1000) {
   work.set(cur); let L = n;
-  for (let x = 0; x < D; x++) { const p = Math.floor(rnd() * L); rem[x] = work[p]; removeAt(work, L, p); L--; }
+  for (let x = 0; x < DD; x++) { let p = Math.floor(rnd() * L); if (FREEZE) { let tries = 0; while (work[p] < FREEZE && tries++ < 1000) p = Math.floor(rnd() * L); } rem[x] = work[p]; removeAt(work, L, p); L--; }
   if (VAR === 'all') localSearch(work, L, makespan(work, L));
   let ms = 0;
-  for (let x = 0; x < D; x++) { bestInsert(work, L, rem[x]); insertAt(work, L, bpos, rem[x]); L++; ms = bms; }
+  for (let x = 0; x < DD; x++) { bestInsert(work, L, rem[x]); insertAt(work, L, bpos, rem[x]); L++; ms = bms; }
   ms = localSearch(work, n, ms);
   if (ms < curMs || rnd() < Math.exp(-(ms - curMs) / temp)) {
     cur.set(work); curMs = ms;

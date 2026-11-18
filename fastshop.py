@@ -70,6 +70,28 @@ def solve(product, dow, n, seconds=60, workers=10, init=None, use_lib=True, seed
     return seq, ms
 
 
+def solve_nested(product, dow, n, levels, seconds=60, workers=10):
+    """Sequence for n jobs that stays optimised when production is cut to k = any of `levels` (material shortage keeps
+    only ids <= k in the entered order - seen on other teams' boards, where a normal sequence cut this way ran
+    5-14% longer than the best one). Built bottom-up: best order for the lowest level, then the higher ids are inserted
+    and optimised while everything below keeps its relative order. Returns (seq, makespan, {k: makespan when cut to k})."""
+    levels = sorted(k for k in set(levels) if 0 < k < n)
+    if not levels: return (*solve(product, dow, n, seconds, workers), {})
+    pre = 't' if product == 'P1' else 't2'; csv = f'{HERE}/ptt/{pre}_500_20_{dow}.csv'
+    seq, _ = solve(product, dow, levels[0], seconds, workers); prev = levels[0]
+    for k in levels[1:] + [n]:
+        def run(i):
+            d, T, _v = CONFIGS[i % len(CONFIGS)]
+            cmd = ['node', f'{HERE}/fs_solver.js', csv, str(k), str(max(5, seconds / 3)), str(i + 1), str(d), str(T), f'rs:ts:{prev}', ','.join(map(str, seq))]
+            o = json.loads(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout); return o['ms'], o['seq']
+        with ThreadPoolExecutor(workers) as ex: ms, new = min(ex.map(run, range(workers)), key=lambda r: r[0])
+        assert [j for j in new if j <= prev] == seq, 'nesting broken'
+        seq, prev = new, k
+    P = load_ptt(product, dow, n); assert sorted(seq) == list(range(1, n + 1))
+    cut = {k: makespan(load_ptt(product, dow, k), [j - 1 for j in seq if j <= k]) for k in levels}
+    return seq, makespan(P, [j - 1 for j in seq]), cut
+
+
 if __name__ == '__main__':
     product, dow, n = sys.argv[1], sys.argv[2], int(sys.argv[3]); secs = float(sys.argv[4]) if len(sys.argv) > 4 else 60
     seq, ms = solve(product, dow, n, secs)
