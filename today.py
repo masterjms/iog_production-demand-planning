@@ -41,7 +41,15 @@ for k in ['P1', 'P2']:   # days without an entered plan: same DP, carrying actua
         for d in est: plan.setdefault(d, {})[k] = alloc[d]
 if est: print('tentative jobs for days without an entered plan (DP estimate from carried stock, not on the board):')
 for d in est: print('  ', d.date(), d.strftime('%a'), plan[d])
-pending = [tuple(o) for o in json.load(open('orders_pending.json')) if pd.Timestamp(o[0]) >= today]   # [arrival, mat, qty, urgent]
+allp = [tuple(o) for o in json.load(open('orders_pending.json'))]   # [arrival, mat, qty, urgent]
+BOM = {'P1': {'M1': 1, 'M2': 2}, 'P2': {'M3': 1, 'M2': 2}}
+for d in pd.date_range(last + pd.Timedelta(days=1), today - pd.Timedelta(days=1)):   # days the ledger has not processed yet: roll the material stock forward
+    for a, m_, q, u in allp:
+        if pd.Timestamp(a) == d: mat0[m_] += q
+    for p_, n_ in jobs.get(str(d.date()), {}).items():
+        for m_, q in BOM[p_].items(): mat0[m_] -= q * n_ * 1000
+if today - last > pd.Timedelta(days=1): print('material stock rolled forward to the start of', today.date(), ':', mat0)
+pending = [o for o in allp if pd.Timestamp(o[0]) >= today]
 print('pending arrivals:', pending)
 orders, warns = material_orders(plan, mat0, pending, days, today - pd.Timedelta(days=1), START, END)
 print(f'\n== orders (place TODAY {today.date()} marked *) ==')
