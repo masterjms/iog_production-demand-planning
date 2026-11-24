@@ -3,7 +3,7 @@ Simulates prices from the order day to Saturday (bootstrap of the last 60 log re
 P1 level (N(0, US_SD)), the finished-goods carry-over from the locked plan, then runs the same forecast + DP the
 Saturday planner runs, and compares the material the new plan needs with what will be on hand.
 Use AFTER today.py for the same day (it refreshes data/ and data_C/):
-  python buffer_mc.py 2026-11-19 M3 2026-11-30 [paths]     # order day, material, next arrival of that material
+  python buffer_mc.py 2026-11-19 M3 2026-11-30 [paths] [vol window, default 60]     # order day, material, next arrival of that material
 Cost of being short s units = min(STOCKOUT*s, rescue order on Saturday (fee, arrives before the last day of the window));
 cost of a spare unit = holding until the next arrival (the next order is reduced by it)."""
 import sys, json, glob, numpy as np, pandas as pd
@@ -15,6 +15,7 @@ US_SD, STOCKOUT = 0.02, 310
 BOM = {'P1': {'M1': 1, 'M2': 2}, 'P2': {'M3': 1, 'M2': 2}}
 today, mat, nxt_arr = pd.Timestamp(sys.argv[1]), sys.argv[2], pd.Timestamp(sys.argv[3])
 N = int(sys.argv[4]) if len(sys.argv) > 4 else 400
+WIN = int(sys.argv[5]) if len(sys.argv) > 5 else 60     # returns bootstrapped from the last WIN observations (20 = recent high volatility)
 prod = 'P1' if mat == 'M1' else 'P2'
 sat = today + pd.Timedelta(days=(5 - today.weekday()) % 7)
 planner.US_SIGNAL = False                                   # the shift is simulated here
@@ -26,7 +27,7 @@ fg0 = int(L[L.Action == f'SALES_INVENTORY_{prod}'].sort_values('Date').iloc[-1][
 m0 = int(pd.read_csv('data_C/material_0.csv').set_index('Material type').loc[mat, 'Current level'])
 arr = [tuple(o) for o in json.load(open('orders_pending.json')) if o[1] == mat]
 week = [sat + pd.Timedelta(days=i) for i in range(1, 8)]; look = [week[-1] + pd.Timedelta(days=i) for i in range(1, 3)]
-v = np.array([hist[d] for d in sorted(hist)][-61:], float); rets = np.diff(np.log(v[v > 0])); rets = rets - rets.mean()
+v = np.array([hist[d] for d in sorted(hist)][-(WIN + 1):], float); rets = np.diff(np.log(v[v > 0])); rets = rets - rets.mean()
 for d in pd.date_range(max(hist) + pd.Timedelta(days=1), today):   # preview run for a later day: prices up to that day assumed unchanged
     if prod == 'P2' or is_trading(d): hist[d] = hist[max(hist)]
 fut = [d for d in pd.date_range(today + pd.Timedelta(days=1), sat) if prod == 'P2' or is_trading(d)]
