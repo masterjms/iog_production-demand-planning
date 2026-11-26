@@ -27,6 +27,7 @@ fg0 = int(L[L.Action == f'SALES_INVENTORY_{prod}'].sort_values('Date').iloc[-1][
 m0 = int(pd.read_csv('data_C/material_0.csv').set_index('Material type').loc[mat, 'Current level'])
 arr = [tuple(o) for o in json.load(open('orders_pending.json')) if o[1] == mat]
 week = [sat + pd.Timedelta(days=i) for i in range(1, 8)]; look = [week[-1] + pd.Timedelta(days=i) for i in range(1, 3)]
+week = [d for d in week if d <= END]                         # last week: no production after the round ends
 v = np.array([hist[d] for d in sorted(hist)][-(WIN + 1):], float); rets = np.diff(np.log(v[v > 0])); rets = rets - rets.mean()
 for d in pd.date_range(max(hist) + pd.Timedelta(days=1), today):   # preview run for a later day: prices up to that day assumed unchanged
     if prod == 'P2' or is_trading(d): hist[d] = hist[max(hist)]
