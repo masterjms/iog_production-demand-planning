@@ -59,7 +59,7 @@ def run(shift, alpha, mine=None, cap=158, mx=187, flat=None):
         wk_ = [str(x.date()) for x in days if x > pd.Timestamp('2026-11-28')]
         if IMPUTE and sum(j.get((x, p_), 0) for x in wk_ for p_ in ('P1', 'P2')) == 0:      # no plan visible: assume a pack-like plan
             f1 = float(fg0.loc[t, 'P1']) if (t in fg0.index and 'P1' in fg0.columns) else 0.0; f2 = float(fg0.loc[t, 'P2']) if (t in fg0.index and 'P2' in fg0.columns) else 0.0
-            need1 = IMPUTE * 5 * 1000 - f1; f2 = max(0.0, f2 - 59430)
+            need1 = IMPUTE * 5 * 1000 - f1; f2 = max(0.0, f2 - 59430) if last < '2026-11-28' else f2      # Saturday's P2 sale, if not in the ledger yet
             for x in wk_:
                 if planner.is_trading(pd.Timestamp(x)): n_ = int(np.clip(np.ceil(min(need1, IMPUTE * 1000) / 1000), 0, IMPUTE)) if x == wk_[1] else IMPUTE; j[(x, 'P1')] = n_
                 n2 = int(max(0, np.ceil((59800 - f2) / 1000))); f2 = max(0.0, f2 + n2 * 1000 - 59430); j[(x, 'P2')] = n2
